@@ -17,17 +17,17 @@ class ExtLangMapper:
         'Ruby': ['rb'],
     }
 
-    extension_lang_id = dict()
+    _extension_lang_id = dict()
 
     @staticmethod
     def get_id(extension):
-        return ExtLangMapper.extension_lang_id.get(extension)
+        return ExtLangMapper._extension_lang_id.get(extension)
 
     @staticmethod
-    def init_extension_language_ids():
+    def init():
         lang_name_id = dict((name, id) for id, name in DbManager.select_languages())
         # Make extension_lang_id a dictionary that maps extensions from
         # __extension_lang to language ids from language result set
         for name, extensions in ExtLangMapper.__lang_extensions.items():
             for ext in extensions:
-                ExtLangMapper.extension_lang_id[ext] = lang_name_id[name]
+                ExtLangMapper._extension_lang_id[ext] = lang_name_id[name]
