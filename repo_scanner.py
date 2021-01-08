@@ -21,6 +21,7 @@ class RepoScanner:
         #  [x] organize exception handling for database operations
         #  [x] when DbManager error, raise an error to the messenger class
         #  [x] update repository_language.present column
+        #  [ ] raise exception if repo folder is not found in the filesystem
 
         print('Scanning directory \'{}\\{}\''.format(RepoScanner._repos_download_path, repo_id))
         try:

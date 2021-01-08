@@ -11,6 +11,8 @@ def connect():
 
 class DbManager:
 
+    _verbose = False
+
     @staticmethod
     def _run_query(query, params):
         """Generic query execution method for all queries that do NOT
@@ -20,15 +22,18 @@ class DbManager:
             cursor = connection.cursor()
             cursor.execute(query, tuple(params))
         except (Exception, psycopg2.DatabaseError) as error:
-            print("Error in transaction:", error)  # Reverting all other operations of the transaction. ", error)
+            if DbManager._verbose:
+                print("Error in transaction:", error)  # Reverting all other operations of the transaction. ", error)
             connection.rollback()
             raise Exception("DbManager Error:", error)
         else:
             connection.commit()
-            print("Transaction completed successfully")
+            if DbManager._verbose:
+                print("Transaction completed successfully")
         finally:
             if connection is not None:
-                print("Closing connection to database")
+                if DbManager._verbose:
+                    print("Closing connection to database")
                 connection.close()
 
     @staticmethod
@@ -38,18 +43,22 @@ class DbManager:
         connection = connect()
         try:
             cursor = connection.cursor()
-            print("Calling database")
+            if DbManager._verbose:
+                print("Calling database")
             cursor.execute(query, tuple(params))
             rs = cursor.fetchall()
         except (Exception, psycopg2.DatabaseError) as error:
-            print("Error while executing query:", error)  # Reverting all other operations of the transaction. ", error)
+            if DbManager._verbose:
+                print("Error while executing query:", error)  # Reverting all other operations of the transaction. ", error)
             raise Exception("DbManager Error:", error)
         else:
-            print("Query executed successfully")
+            if DbManager._verbose:
+                print("Query executed successfully")
             return rs
         finally:
             if connection is not None:
-                print("Closing connection to database")
+                if DbManager._verbose:
+                    print("Closing connection to database")
                 connection.close()
 
     @staticmethod
@@ -60,6 +69,13 @@ class DbManager:
     def select_repository_languages(repo_id):
         return DbManager._run_select_query(
             "SELECT * FROM repository_language WHERE repository_id = %s",
+            [repo_id]
+        )
+
+    @staticmethod
+    def select_repository_by_id(repo_id):
+        return DbManager._run_select_query(
+            "SELECT * FROM repositories WHERE repo_id = %s",
             [repo_id]
         )
 
@@ -86,16 +102,19 @@ class DbManager:
             cursor.execute(query, (repo_id,))
             rs = cursor.fetchall()
         except (Exception, psycopg2.DatabaseError) as error:
-            print("Error in transaction:", error)  # Reverting all other operations of the transaction. ", error)
+            if DbManager._verbose:
+                print("Error in transaction:", error)  # Reverting all other operations of the transaction. ", error)
             connection.rollback()
             raise
         else:
             connection.commit()
-            print("Transaction completed successfully")
+            if DbManager._verbose:
+                print("Transaction completed successfully")
             return rs
         finally:
             if connection is not None:
-                print("Closing connection to database")
+                if DbManager._verbose:
+                    print("Closing connection to database")
                 connection.close()
 
     @staticmethod
@@ -119,15 +138,18 @@ class DbManager:
             cursor.execute(query, (repo_id, lang_id, present, analyzed))
             rs = cursor.fetchone()
         except (Exception, psycopg2.DatabaseError) as error:
-            print("Error in transaction:", error)  # Reverting all other operations of the transaction. ", error)
+            if DbManager._verbose:
+                print("Error in transaction:", error)  # Reverting all other operations of the transaction. ", error)
             connection.rollback()
             raise
         else:
             connection.commit()
-            print("Transaction completed successfully")
+            if DbManager._verbose:
+                print("Transaction completed successfully")
         finally:
             if connection is not None:
-                print("Closing connection to database")
+                if DbManager._verbose:
+                    print("Closing connection to database")
                 connection.close()
                 return rs
 

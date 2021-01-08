@@ -24,10 +24,14 @@ class ExtLangMapper:
         return ExtLangMapper._extension_lang_id.get(extension)
 
     @staticmethod
-    def init():
+    def _init():
+        print("Initializing extension-language-id mapper.")
         lang_name_id = dict((name, id) for id, name in DbManager.select_languages())
         # Make extension_lang_id a dictionary that maps extensions from
         # __extension_lang to language ids from language result set
         for name, extensions in ExtLangMapper.__lang_extensions.items():
             for ext in extensions:
                 ExtLangMapper._extension_lang_id[ext] = lang_name_id[name]
+
+
+ExtLangMapper._init()
