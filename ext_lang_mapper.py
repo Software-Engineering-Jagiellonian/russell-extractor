@@ -1,3 +1,4 @@
+import logging
 from extractor.db_manager import DbManager
 
 
@@ -18,20 +19,23 @@ class ExtLangMapper:
     }
 
     _extension_lang_id = dict()
+    _extension_lang_name = dict()
 
     @staticmethod
-    def get_id(extension):
+    def get_language_id(extension):
         return ExtLangMapper._extension_lang_id.get(extension)
 
     @staticmethod
-    def _init():
-        print("Initializing extension-language-id mapper.")
+    def get_language_name(extension):
+        return ExtLangMapper._extension_lang_name.get(extension)
+
+    @staticmethod
+    def init():
+        logging.info("Initializing extension-language-id mapper")
         lang_name_id = dict((name, id) for id, name in DbManager.select_languages())
         # Make extension_lang_id a dictionary that maps extensions from
         # __extension_lang to language ids from language result set
         for name, extensions in ExtLangMapper.__lang_extensions.items():
             for ext in extensions:
                 ExtLangMapper._extension_lang_id[ext] = lang_name_id[name]
-
-
-ExtLangMapper._init()
+                ExtLangMapper._extension_lang_name[ext] = name

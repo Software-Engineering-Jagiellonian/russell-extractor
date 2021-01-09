@@ -1,9 +1,8 @@
 import json
-
+import logging
 import pika
 import sys
 from extractor.db_manager import DbManager
-from extractor.ext_lang_mapper import ExtLangMapper
 from extractor.repo_scanner import RepoScanner
 
 
@@ -13,30 +12,21 @@ class Messenger:
 
     _input_queue = 'extract'
 
-    # Output queues' names by language ids
-    # TODO: use database to map output queue names to languages
-    _output_queues = {
-        1: 'analyze-c',
-        2: 'analyze-cpp',
-        3: 'analyze-csharp',
-        4: 'analyze-css',
-        5: 'analyze-java',
-        6: 'analyze-js',
-        7: 'analyze-php',
-        8: 'analyze-python',
-        9: 'analyze-ruby',
+    # Output queues' names identified by language names (from repositories table)
+    __output_queue_name = {
+        'C': 'analyze-c',
+        'C++': 'analyze-cpp',
+        'C#': 'analyze-csharp',
+        'CSS': 'analyze-css',
+        'Java': 'analyze-java',
+        'JS': 'analyze-js',
+        'PHP': 'analyze-php',
+        'Python': 'analyze-python',
+        'Ruby': 'analyze-ruby',
     }
 
-    # Output channels identified by their queue names
+    # Output channels identified by their language names
     _output_channels = dict()
-
-    @staticmethod
-    def callback(ch, method, properties, body):
-        ch.stop_consuming()
-        print(f" [x] Received!:")
-        print(body.decode('utf-8'))
-        input("Press ENTER to start extracting stuff")
-        ch.basic_ack(delivery_tag=method.delivery_tag)
 
     @staticmethod
     def publish_one(rabbitmq_host, rabbitmq_port, queue):
@@ -87,7 +77,7 @@ class Messenger:
                 output_channels = dict()
                 # Declare output channels
                 # Channels identified by their queue names
-                for q_name in Messenger._output_queues.values():
+                for q_name in Messenger.__output_queue_name.values():
                     output_channels[q_name] = connection.channel()
                     output_channels[q_name].queue_declare(queue=q_name, durable=True)
                     output_channels[q_name].confirm_delivery()
@@ -97,13 +87,13 @@ class Messenger:
                 while True:
                     print("Type a message and press Ctrl+D:")
                     message = "".join(sys.stdin.readlines())
-                    for q_name in Messenger._output_queues.values():
+                    for q_name in Messenger.__output_queue_name.values():
                         try:
                             payload = message + " for " + q_name + " queue"
                             output_channels[q_name].basic_publish(
                                 exchange='',
                                 routing_key=q_name,
-                                properties=pika.BasicProperties(delivery_mode=2,),
+                                properties=pika.BasicProperties(delivery_mode=2, ),
                                 body=bytes(payload, encoding='utf8')
                             )
                             print("Message was received by RabbitMQ")
@@ -120,13 +110,12 @@ class Messenger:
                     pass
                 sys.exit(0)
 
-
     @staticmethod
     def app(rabbitmq_host, rabbitmq_port):
         while True:
             try:
                 # Make connection to RabbitMQ
-                print(f"Connecting to RabbitMQ ({rabbitmq_host}:{rabbitmq_port})...")
+                logging.info(f"Connecting to RabbitMQ ({rabbitmq_host}:{rabbitmq_port})...")
                 connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port))
 
                 # Create input channel
@@ -134,25 +123,25 @@ class Messenger:
                 input_channel.queue_declare(queue=Messenger._input_queue, durable=True)
 
                 # Create output channels
-                # Channels identified by their queue names
-                for q_name in Messenger._output_queues.values():
-                    Messenger._output_channels[q_name] = connection.channel()
-                    Messenger._output_channels[q_name].queue_declare(queue=q_name, durable=True)
-                    Messenger._output_channels[q_name].confirm_delivery()
+                # Channels identified by their language names
+                for lang_name, q_name in Messenger.__output_queue_name.items():
+                    Messenger._output_channels[lang_name] = connection.channel()
+                    Messenger._output_channels[lang_name].queue_declare(queue=q_name, durable=True)
+                    Messenger._output_channels[lang_name].confirm_delivery()
 
-                print("Connected")
+                logging.info("Connected.")
                 while True:
                     input_channel.basic_consume(
                         queue=Messenger._input_queue,
                         auto_ack=False,
                         on_message_callback=Messenger._consume_input)
-                    print(' [*] Waiting for a message about extracting a new repo...')
+                    logging.info(' [*] Waiting for a message about extracting a new repo...')
                     input_channel.start_consuming()
 
             except pika.exceptions.AMQPConnectionError as exception:
-                print(f"AMQP Connection Error: {exception}")
+                logging.error(f"AMQP Connection Error: {exception}")
             except KeyboardInterrupt:
-                print(" Exiting...")
+                logging.info(" Exiting...")
                 try:
                     connection.close()
                 except NameError:
@@ -162,14 +151,15 @@ class Messenger:
     @staticmethod
     def _consume_input(ch, method, properties, body):
         ch.stop_consuming()
-        print(f" Extractor received a new message!")
+        body_dec = body.decode('utf-8')
+        logging.info("Received a new message: {}".format(body_dec))
         try:
-            message = json.loads(body.decode('utf-8'))
+            message = json.loads(body_dec)
         except json.decoder.JSONDecodeError as err:
-            print("Exception while decoding JSON message:", err)
+            logging.error("Exception while decoding JSON message:", err)
         else:
             Messenger._scan_send(message)
-        # input("Press ENTER")
+            logging.info("Finished extractor task.\n")
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     @staticmethod
@@ -182,31 +172,32 @@ class Messenger:
                 if not DbManager.select_repository_by_id(repo_id):
                     raise Exception('Did not found repository \'{}\' in the repositories table.'
                                     .format(repo_id))
-                print("Running repo scanner for \'{}\'".format(repo_id))
+                logging.info("Running repo scanner for \'{}\'".format(repo_id))
                 found_languages = RepoScanner.scan_repo(repo_id)
             except Exception as e:
-                print("Exception while scanning repository \'{}\'. Aborting further process for this repo.\n"
-                      "Cause of the error: {}".format(repo_id, e))
+                logging.error("Exception while scanning repository \'{}\'. Aborting further process for this repo.\n"
+                              "Cause of the error: {}".format(repo_id, e))
             else:
+                logging.info("Repository scan complete")
                 # Send message for all proper output channels
-                for lang_id in found_languages:
+                for lang_name in found_languages:
                     try:
-                        Messenger._output_channels[Messenger._output_queues[lang_id]].basic_publish(
+                        out_queue_name = Messenger.__output_queue_name[lang_name]
+                        logging.info("Sending message to {}...".format(out_queue_name))
+                        Messenger._output_channels[lang_name].basic_publish(
                             exchange='',
-                            routing_key=Messenger._output_queues[lang_id],
-                            properties=pika.BasicProperties(delivery_mode=2,),
+                            routing_key=out_queue_name,
+                            properties=pika.BasicProperties(delivery_mode=2, ),
                             body=bytes(json.dumps(message), encoding='utf8')
                         )
-                        print("Output message received by RabbitMQ")
+                        logging.info("Output message received by RabbitMQ")
                     except pika.exceptions.NackError as e:
-                        print("Output message REJECTED by RabbitMQ (queue full?). Error:", e)
+                        logging.error("Output message REJECTED by RabbitMQ (queue full?). Error:", e)
         else:
-            print('Error: did not found \"repo_id\" entry in the JSON message.')
-
+            logging.error("Error: did not found \"repo_id\" entry in the JSON message.")
 
 
 if __name__ == '__main__':
-
     # print(DbManager.insert_repository_language('lcs', 7, True))
     # print(DbManager.insert_repository_languages('fibonacci'))
     # DbManager.update_repository_language_present('fibonacci', 2)
@@ -253,4 +244,3 @@ if __name__ == '__main__':
 
     # Messenger.publish_all('127.0.0.1', '5672')
     # Messenger.publish_one('127.0.0.1', 5672, 'analyze-c')
-
