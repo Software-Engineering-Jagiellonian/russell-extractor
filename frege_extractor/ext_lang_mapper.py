@@ -1,5 +1,5 @@
 import logging
-from extractor.db_manager import DbManager
+from db_manager import DbManager
 
 
 class ExtLangMapper:

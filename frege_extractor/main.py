@@ -2,8 +2,8 @@ import json
 import logging
 import pika
 import sys
-from extractor.db_manager import DbManager
-from extractor.repo_scanner import RepoScanner
+from db_manager import DbManager
+from repo_scanner import RepoScanner
 
 
 class Messenger:
@@ -198,6 +198,9 @@ class Messenger:
 
 
 if __name__ == '__main__':
+    print("running main.py")
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s',
+                        datefmt='%H:%M:%S')
     # print(DbManager.insert_repository_language('lcs', 7, True))
     # print(DbManager.insert_repository_languages('fibonacci'))
     # DbManager.update_repository_language_present('fibonacci', 2)

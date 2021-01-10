@@ -1,5 +1,5 @@
 import psycopg2
-from extractor.config.config import config
+from config.config import config
 import logging
 
 

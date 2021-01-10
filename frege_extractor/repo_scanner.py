@@ -1,8 +1,8 @@
 import os
 import re
 import logging
-from extractor.db_manager import DbManager
-from extractor.ext_lang_mapper import ExtLangMapper
+from db_manager import DbManager
+from ext_lang_mapper import ExtLangMapper
 
 
 class RepoScanner:
@@ -55,6 +55,8 @@ class RepoScanner:
                             # Update the dictionary of the present languages
                             present_langs.add(lang_id)
                         DbManager.insert_repository_language_file(repo_lang_ids[lang_id], file_path)
+            if not present_langs:
+                logging.info("No source files found in the repo")
             # Make list of names of languages from set of their ids
             return [RepoScanner.__language_id_name[lang__id] for lang__id in present_langs]
         except Exception as e:
