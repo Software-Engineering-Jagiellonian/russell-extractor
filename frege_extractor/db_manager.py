@@ -1,4 +1,5 @@
 import psycopg2
+import psycopg2.extras
 from config.config import config
 import logging
 
@@ -21,7 +22,7 @@ class DbManager:
             logging.info("Success calling database")
             cursor.execute(query, tuple(params))
         except (Exception, psycopg2.DatabaseError) as error:
-            logging.error("Error in transaction: ", error)
+            logging.error("Error in transaction: {}".format(error))
             connection.rollback()
             raise Exception("DbManager Error:", error)
         else:
@@ -43,7 +44,7 @@ class DbManager:
             cursor.execute(query, tuple(params))
             rs = cursor.fetchall()
         except (Exception, psycopg2.DatabaseError) as error:
-            logging.error("Error in transaction: ", error)
+            logging.error("Error in transaction: {}".format(error))
             raise Exception("DbManager Error:", error)
         else:
             logging.info("Transaction completed successfully")
@@ -73,19 +74,9 @@ class DbManager:
 
     @staticmethod
     def _insert_repository_languages(repo_id):
-        # WRONG !! (_run_select_query doesn't call commit operation)
-        return DbManager._run_select_query(
-            "INSERT INTO repository_language (repository_id, language_id, present, analyzed) "
-            "SELECT %s, languages.id, 'False', 'False' FROM languages RETURNING language_id, id",
-            [repo_id]
-        )
-
-    @staticmethod
-    def insert_repository_languages(repo_id):
         """Inserts repository_language entries for given repo id and ALL languages.
         :return result set of entries: (id, language_id) - id of the inserted entry,
         and id of its language"""
-        rs = None
         connection = connect()
         try:
             cursor = connection.cursor()
@@ -95,7 +86,7 @@ class DbManager:
             cursor.execute(query, (repo_id,))
             rs = cursor.fetchall()
         except (Exception, psycopg2.DatabaseError) as error:
-            logging.error("Error in transaction: ", error)
+            logging.error("Error in transaction: {}".format(error))
             connection.rollback()
             raise
         else:
@@ -108,28 +99,47 @@ class DbManager:
                 connection.close()
 
     @staticmethod
-    def update_repository_language_present(repo_id, lang_id, present=True):
-        """Sets 'present' property of a repository_language entry, default True"""
-        DbManager._run_query(
-            "UPDATE repository_language SET present = %s "
-            "WHERE repository_id = %s AND language_id = %s",
-            [present, repo_id, lang_id])
-
-    @staticmethod
-    def insert_repository_language(repo_id, lang_id, present, analyzed=False):
-        """Inserts repository_language entry for given repo id and language id.
-        :return id of the inserted entry"""
+    def insert_repository_languages(repo_id, present_lang_ids):
+        """Insert repository languages of given repo ID, sets 'present' column to True for
+        given present language IDs.
+        :returns result set containing IDs of inserted entries and their language IDs"""
         connection = connect()
-        rs = None
         try:
             cursor = connection.cursor()
             logging.info("Success calling database")
-            query = "INSERT INTO repository_language (repository_id, language_id, present, analyzed)" \
-                    "VALUES (%s, %s, %s, %s) RETURNING id"
-            cursor.execute(query, (repo_id, lang_id, present, analyzed))
-            rs = cursor.fetchone()
+            insert_query = "INSERT INTO repository_language (repository_id, language_id, present, analyzed)" \
+                           "SELECT %s, languages.id, 'False', 'False' FROM languages RETURNING language_id, id"
+            cursor.execute(insert_query, (repo_id,))
+            rs = cursor.fetchall()
+            update_query = "UPDATE repository_language SET present='True' " \
+                           "WHERE repository_id = %s AND language_id IN %s"
+            cursor.execute(update_query, (repo_id, tuple(present_lang_ids)))
+            # psycopg2.extras.execute_values(cursor,
+            #     "UPDATE repository_language SET present='True' WHERE language")
         except (Exception, psycopg2.DatabaseError) as error:
-            logging.error("Error in transaction: ", error)
+            logging.error("Error in transaction: {}".format(error))
+            connection.rollback()
+            raise
+        else:
+            connection.commit()
+            logging.info("Transaction completed successfully")
+            return rs
+        finally:
+            if connection is not None:
+                logging.info("Closing connection to database")
+                connection.close()
+
+    @staticmethod
+    def insert_repository_language_files(entries):
+        """Inserts repository_language_file entries"""
+        connection = connect()
+        try:
+            cursor = connection.cursor()
+            logging.info("Success calling database")
+            query = "INSERT INTO repository_language_file (repository_language_id, file_path) VALUES %s"
+            psycopg2.extras.execute_values(cursor, query, entries)
+        except (Exception, psycopg2.DatabaseError) as error:
+            logging.error("Error in transaction: {}".format(error))
             connection.rollback()
             raise
         else:
@@ -139,7 +149,14 @@ class DbManager:
             if connection is not None:
                 logging.info("Closing connection to database")
                 connection.close()
-                return rs
+
+    @staticmethod
+    def update_repository_language_present(repo_id, lang_id, present=True):
+        """Sets 'present' property of a repository_language entry, default True"""
+        DbManager._run_query(
+            "UPDATE repository_language SET present = %s "
+            "WHERE repository_id = %s AND language_id = %s",
+            [present, repo_id, lang_id])
 
     @staticmethod
     def insert_repository_language_file(repo_lang_id, file_path):

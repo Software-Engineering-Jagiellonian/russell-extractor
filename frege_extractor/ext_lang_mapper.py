@@ -1,6 +1,6 @@
 import logging
 from db_manager import DbManager
-
+# from logger import logger
 
 class ExtLangMapper:
     """Class that maps source file extension to the
