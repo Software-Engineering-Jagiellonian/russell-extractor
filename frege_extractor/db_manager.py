@@ -1,12 +1,17 @@
 import psycopg2
 import psycopg2.extras
-from config.config import config
 import logging
+from config import DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD
 
 
 def connect():
-    params = config("credentials.ini")
-    engine = psycopg2.connect(**params)
+    engine = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        database=DB_DATABASE,
+        user=DB_USERNAME,
+        password=DB_PASSWORD
+    )
     return engine
 
 

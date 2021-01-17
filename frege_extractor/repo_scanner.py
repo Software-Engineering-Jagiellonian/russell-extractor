@@ -3,15 +3,12 @@ import re
 import logging
 from db_manager import DbManager
 from ext_lang_mapper import ExtLangMapper
+from config import REPOSITORIES_DIRECTORY
 
 
 class RepoScanner:
     """Scanner of repository folder located in the file system.
     Finds source files by extension."""
-
-    # Path for the downloaded repos
-    # _repos_download_path = 'sample-repo'
-    _repos_download_path = os.environ.get('REPOSITORIES_DIRECTORY', 'sample-repo')
 
     # File extension pattern
     __ext_pattern = re.compile(r'\.([0-9a-zA-Z]*)$')
@@ -24,9 +21,9 @@ class RepoScanner:
         """Performs scanning of repository folder by its id
         :returns set of names of languages found in repo"""
 
-        logging.info("Scanning directory {}".format(os.path.join(RepoScanner._repos_download_path, repo_id)))
+        logging.info("Scanning directory {}".format(os.path.join(REPOSITORIES_DIRECTORY, repo_id)))
         # Raise error if repo_id is not found among folders
-        if repo_id not in os.listdir(RepoScanner._repos_download_path):
+        if repo_id not in os.listdir(REPOSITORIES_DIRECTORY):
             raise Exception('\'{}\' was not found in the download directory of repositories'.format(repo_id))
 
         files_langs, present_langs = RepoScanner.get_repo_files_langs(repo_id)
@@ -45,7 +42,7 @@ class RepoScanner:
         # Set of ids of the present languages in repo
         present_lang_ids = set()
         files_langs = []
-        for dirpath, dirs, files in os.walk(os.path.join(RepoScanner._repos_download_path, repo_id)):
+        for dirpath, dirs, files in os.walk(os.path.join(REPOSITORIES_DIRECTORY, repo_id)):
             # For every file found in the directory
             for filename in files:
                 # Extract extension from the name

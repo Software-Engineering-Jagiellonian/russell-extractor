@@ -1,3 +1,4 @@
+# Configure logging
 import logging
 logging.basicConfig(
     handlers=[logging.StreamHandler()],
@@ -5,19 +6,19 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s: %(message)s',
     datefmt='%H:%M:%S')
 
-from os.path import dirname, abspath, join
-import sys
 
 from messenger import Messenger
 from ext_lang_mapper import ExtLangMapper
-# from logger import logger
-# Add package directory to system path
+from config import RABBITMQ_HOST, RABBITMQ_PORT
+
+# Add package directory to system path (not necessary)
+# from os.path import dirname, abspath, join
+# import sys
 # sys.path.append(dirname(__file__))
 
 
 if __name__ == '__main__':
-    print("running main.py")
-    logging.info("start")
+    logging.info("Starting frege-extractor app")
     ExtLangMapper.init()
-    Messenger.app('127.0.0.1', '5672')
+    Messenger.app(RABBITMQ_HOST, RABBITMQ_PORT)
 
