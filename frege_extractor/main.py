@@ -20,5 +20,5 @@ from config import RABBITMQ_HOST, RABBITMQ_PORT
 if __name__ == '__main__':
     logging.info("Starting frege-extractor app")
     ExtLangMapper.init()
-    Messenger.app(RABBITMQ_HOST, RABBITMQ_PORT)
+    Messenger().app(RABBITMQ_HOST, RABBITMQ_PORT)
 
