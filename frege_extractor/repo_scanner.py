@@ -26,7 +26,11 @@ class RepoScanner:
         if repo_id not in os.listdir(REPOSITORIES_DIRECTORY):
             raise Exception('\'{}\' was not found in the download directory of repositories'.format(repo_id))
 
-        files_langs, present_langs = RepoScanner.get_repo_files_langs(repo_id)
+        # lang_ids_for_repo = RepoScanner._db_get_languages_for_repo(repo_id)
+        files_langs, present_langs = RepoScanner.get_repo_files_langs(
+            repo_id, list(RepoScanner.__language_id_name.keys())
+        )
+
         if not files_langs:
             logging.warning("No known source files found in the repo")
 
@@ -36,7 +40,7 @@ class RepoScanner:
         return [RepoScanner.__language_id_name[lang_id] for lang_id in present_langs]
 
     @staticmethod
-    def get_repo_files_langs(repo_id):
+    def get_repo_files_langs(repo_id, lang_ids):
         """Extracts source files and the present languages from the repo folder
         :returns tuple of found files' paths and present languages' IDs"""
         # Set of ids of the present languages in repo
@@ -49,7 +53,7 @@ class RepoScanner:
                 extension = RepoScanner.get_file_extension(filename)
                 # Get language id by file extension
                 lang_id = ExtLangMapper.get_language_id(extension)
-                if lang_id:
+                if lang_id in lang_ids:
                     file_path = os.path.join(dirpath, filename)
                     logging.info("Found a source file {}".format(file_path))
                     files_langs.append((file_path, lang_id))
@@ -57,14 +61,33 @@ class RepoScanner:
         return files_langs, list(present_lang_ids)
 
     @staticmethod
+    def _db_get_languages_for_repo(repo_id):
+        """:returns list of language IDs given for repository ID in
+        repository_language table. If there are none, returns all language IDs"""
+        repo_langs = DbManager.select_repository_languages(repo_id)
+        if repo_langs:
+            return [rl[0] for rl in repo_langs]
+        else:
+            return list(RepoScanner.__language_id_name.keys())
+
+    @staticmethod
     def _db_insert_repo_languages_files(repo_id, present_langs, files_langs):
         """Inserts repository_language and repository_language_file entries in the database"""
-        # Dictionary that maps language id to repository_language entry id
-        repo_lang_ids = dict(DbManager.insert_repository_languages(repo_id, present_langs))
-
-        # Make list of files and corresponding repository_language ids
-        repo_lang_files = [(repo_lang_ids[lang], file) for (file, lang) in files_langs]
-        DbManager.insert_repository_language_files(repo_lang_files)
+        # repo_lang_ids - dictionary that maps language id to repository_language entry id for this repo
+        # Select existing entries
+        repo_lang_ids = dict(DbManager.select_repository_languages(repo_id))
+        if not repo_lang_ids:
+            # Insert new entries and return their ids
+            repo_lang_ids = dict(DbManager.insert_repository_languages(repo_id, present_langs))
+        try:
+            # Make list of files and corresponding repository_language ids
+            repo_lang_files = [(repo_lang_ids[lang], file) for (file, lang) in files_langs]
+            # Insert all files to database
+            DbManager.insert_repository_language_files(repo_lang_files)
+        except KeyError as e:
+            raise Exception(f"A repository_language entry for language {e} and repo \'{repo_id}\' is missing,"
+                            f" but other entries for this repo were found. repository_language table should"
+                            f" contain records for either all languages or none.")
 
     @staticmethod
     def get_file_extension(filename):

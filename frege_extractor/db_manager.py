@@ -66,7 +66,7 @@ class DbManager:
     @staticmethod
     def select_repository_languages(repo_id):
         return DbManager._run_select_query(
-            "SELECT * FROM repository_language WHERE repository_id = %s",
+            "SELECT language_id, id FROM repository_language WHERE repository_id = %s ",
             [repo_id]
         )
 
