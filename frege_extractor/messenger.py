@@ -10,6 +10,8 @@ class Messenger:
     """Handles input and output messages in RabbitMQ message-broker.
     Calls other classes' methods for extracting repository."""
 
+    # TODO: when sending output messages, retry sending when queues are full
+
     def __init__(self):
         # Input channel
         self._input_channel = None

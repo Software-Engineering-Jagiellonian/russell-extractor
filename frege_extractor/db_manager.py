@@ -78,7 +78,15 @@ class DbManager:
         )
 
     @staticmethod
-    def _insert_repository_languages(repo_id):
+    def update_present_repository_languages(repo_id, present_lang_ids):
+        DbManager._run_query(
+            "UPDATE repository_language SET present='True' "
+            "WHERE repository_id = %s AND language_id IN %s",
+            [repo_id, tuple(present_lang_ids)]
+        )
+
+    @staticmethod
+    def insert_repository_languages(repo_id):
         """Inserts repository_language entries for given repo id and ALL languages.
         :return result set of entries: (id, language_id) - id of the inserted entry,
         and id of its language"""
@@ -104,7 +112,7 @@ class DbManager:
                 connection.close()
 
     @staticmethod
-    def insert_repository_languages(repo_id, present_lang_ids):
+    def insert_repository_languages_set_present(repo_id, present_lang_ids):
         """Insert repository languages of given repo ID, sets 'present' column to True for
         given present language IDs.
         :returns result set containing IDs of inserted entries and their language IDs"""
