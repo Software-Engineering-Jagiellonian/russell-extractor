@@ -24,12 +24,12 @@ REPOSITORIES_DIRECTORY = 'repo_downloads'
 try:
     RABBITMQ_HOST = os.environ['RMQ_HOST']
     RABBITMQ_PORT = os.environ['RMQ_PORT']
+    RMQ_REJECTED_PUBLISH_DELAY = int(os.environ['RMQ_REJECTED_PUBLISH_DELAY'])
     DB_HOST = os.environ['DB_HOST']
     DB_PORT = os.environ['DB_PORT']
     DB_DATABASE = os.environ['DB_DATABASE']
     DB_USERNAME = os.environ['DB_USERNAME']
     DB_PASSWORD = os.environ['DB_PASSWORD']
-    # REPOSITORIES_DIRECTORY = os.environ['REPOSITORIES_DIRECTORY']
 
 except KeyError as ke:
     logging.error('Environmental variable {} not set!'.format(ke))

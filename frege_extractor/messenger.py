@@ -1,16 +1,15 @@
 import json
 import logging
 import pika
+import time
 from db_manager import DbManager
 from repo_scanner import RepoScanner
-from config import INPUT_QUEUE, OUTPUT_QUEUES
+from config import INPUT_QUEUE, OUTPUT_QUEUES, RMQ_REJECTED_PUBLISH_DELAY
 
 
 class Messenger:
     """Handles input and output messages in RabbitMQ message-broker.
     Calls other classes' methods for extracting repository."""
-
-    # TODO: when sending output messages, retry sending when queues are full
 
     def __init__(self):
         # Input channel
@@ -34,7 +33,7 @@ class Messenger:
                     self._input_channel.basic_consume(
                         queue=INPUT_QUEUE,
                         auto_ack=False,
-                        on_message_callback=self._consume_input)
+                        on_message_callback=self._input_callback)
                     logging.info(' [*] Waiting for a message about extracting a new repo...')
                     self._input_channel.start_consuming()
 
@@ -61,7 +60,7 @@ class Messenger:
         for q_name in OUTPUT_QUEUES.values():
             self._output_channel.queue_declare(queue=q_name, durable=True)
 
-    def _consume_input(self, ch, method, properties, body):
+    def _input_callback(self, ch, method, properties, body):
         """Handles input message and calls methods responsible for running
         scanner and sending output messages"""
         ch.stop_consuming()
@@ -71,12 +70,12 @@ class Messenger:
             message = json.loads(body_dec)
             lang_names = self._validate_scan_repo(message)
         except json.decoder.JSONDecodeError as err:
-            logging.error("Exception while decoding JSON message: {}".format(err))
+            logging.error("Exception: the message doesn't have a correct JSON format. {}".format(err))
         except Exception as e:
             logging.error("Exception while handling input message or scanning repo: {}".format(e))
         else:
             # Send output messages to all queues mapped by found languages
-            self._send_output(message, [OUTPUT_QUEUES[lang_name] for lang_name in lang_names])
+            self._send_message(message, [OUTPUT_QUEUES[lang_name] for lang_name in lang_names])
             logging.info("Finished extractor task.\n")
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -102,17 +101,24 @@ class Messenger:
             logging.info("Repository scan complete")
             return found_languages
 
-    def _send_output(self, message, queues):
-        """Send output message to specified queues"""
-        for queue in queues:
-            try:
-                logging.info("Sending message to {}...".format(queue))
-                self._output_channel.basic_publish(
-                    exchange='',
-                    routing_key=queue,
-                    properties=pika.BasicProperties(delivery_mode=2, ),
-                    body=bytes(json.dumps(message), encoding='utf8')
-                )
-                logging.info("Output message received by RabbitMQ")
-            except pika.exceptions.NackError as e:
-                logging.error("Output message REJECTED by RabbitMQ (queue full?). Error: {}".format(e))
+    def _send_message(self, message, queues):
+        """Send output message to queues specified by name"""
+        # While the queue list is not empty
+        while queues:
+            for queue in queues:
+                try:
+                    logging.info("Sending message to {}...".format(queue))
+                    self._output_channel.basic_publish(
+                        exchange='',
+                        routing_key=queue,
+                        properties=pika.BasicProperties(delivery_mode=2, ),
+                        body=bytes(json.dumps(message), encoding='utf8')
+                    )
+                    logging.info("Output message received by RabbitMQ")
+                except pika.exceptions.NackError as e:
+                    logging.info(f"Output message NACK from RabbitMQ (queue full)."
+                                 f" Retrying in {RMQ_REJECTED_PUBLISH_DELAY} s")
+                else:
+                    # Remove queue from the list if message received
+                    queues.remove(queue)
+            time.sleep(RMQ_REJECTED_PUBLISH_DELAY)

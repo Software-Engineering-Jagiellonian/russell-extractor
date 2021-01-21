@@ -29,6 +29,7 @@ Run this application with following environmental variables:
 
 - `RMQ_HOST` - RabbitMQ host
 - `RMQ_PORT` - RabbitMQ port
+- `RMQ_REJECTED_PUBLISH_DELAY` - number of seconds to wait between retrying sending output message
 - `DB_HOST` - Postgres server host
 - `DB_PORT` - Postgres server port
 - `DB_DATABASE` - database name
