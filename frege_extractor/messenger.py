@@ -15,8 +15,8 @@ class Messenger:
     def __init__(self):
         # Input channel
         self._input_channel = None
-        # Output channels identified by their language names
-        self._output_channels = dict()
+        # Output channel
+        self._output_channel = None
         self.repo_scanner = RepoScanner()
 
     def app(self, rabbitmq_host, rabbitmq_port):
@@ -55,12 +55,11 @@ class Messenger:
         self._input_channel = connection.channel()
         self._input_channel.queue_declare(queue=INPUT_QUEUE, durable=True)
 
-        # Create output channels
-        # Channels identified by their language names
-        for lang_name, q_name in OUTPUT_QUEUES.items():
-            self._output_channels[lang_name] = connection.channel()
-            self._output_channels[lang_name].queue_declare(queue=q_name, durable=True)
-            self._output_channels[lang_name].confirm_delivery()
+        # Create output channel
+        self._output_channel = connection.channel()
+        self._output_channel.confirm_delivery()
+        for q_name in OUTPUT_QUEUES.values():
+            self._output_channel.queue_declare(queue=q_name, durable=True)
 
     def _consume_input(self, ch, method, properties, body):
         """Handles input message and calls methods responsible for running
@@ -76,7 +75,8 @@ class Messenger:
         except Exception as e:
             logging.error("Exception while handling input message or scanning repo: {}".format(e))
         else:
-            self._send_output(message, lang_names)
+            # Send output messages to all queues mapped by found languages
+            self._send_output(message, [OUTPUT_QUEUES[lang_name] for lang_name in lang_names])
             logging.info("Finished extractor task.\n")
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -102,16 +102,14 @@ class Messenger:
             logging.info("Repository scan complete")
             return found_languages
 
-    def _send_output(self, message, lang_names):
-        """Sends output message to all defined _output_channels identified
-        by their corresponding language names"""
-        for lang_name in lang_names:
+    def _send_output(self, message, queues):
+        """Send output message to specified queues"""
+        for queue in queues:
             try:
-                out_queue_name = OUTPUT_QUEUES[lang_name]
-                logging.info("Sending message to {}...".format(out_queue_name))
-                self._output_channels[lang_name].basic_publish(
+                logging.info("Sending message to {}...".format(queue))
+                self._output_channel.basic_publish(
                     exchange='',
-                    routing_key=out_queue_name,
+                    routing_key=queue,
                     properties=pika.BasicProperties(delivery_mode=2, ),
                     body=bytes(json.dumps(message), encoding='utf8')
                 )
