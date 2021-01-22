@@ -35,3 +35,7 @@ Run this application with following environmental variables:
 - `DB_DATABASE` - database name
 - `DB_USERNAME` - database user name
 - `DB_PASSWORD` - database user password
+
+## Authors
+
+Piotr Bienias https://github.com/poitrek

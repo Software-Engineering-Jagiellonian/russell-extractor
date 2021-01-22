@@ -26,7 +26,6 @@ class Messenger:
                 # Make connection to RabbitMQ
                 logging.info(f"Connecting to RabbitMQ ({rabbitmq_host}:{rabbitmq_port})...")
                 connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port))
-
                 self._create_channels(connection)
                 logging.info("Connected.")
                 while True:
@@ -72,7 +71,9 @@ class Messenger:
         except json.decoder.JSONDecodeError as err:
             logging.error("Exception: the message doesn't have a correct JSON format. {}".format(err))
         except Exception as e:
-            logging.error("Exception while handling input message or scanning repo: {}".format(e))
+            logging.error("Exception while handling input message or scanning repo. "
+                          "Aborting any further process for this message.\n Cause: {}".format(e))
+            # logging.info("Aborting further process for this message")
         else:
             # Send output messages to all queues mapped by found languages
             self._send_message(message, [OUTPUT_QUEUES[lang_name] for lang_name in lang_names])
@@ -94,8 +95,8 @@ class Messenger:
             logging.info("Running repo scanner for \'{}\'".format(repo_id))
             found_languages = self.repo_scanner.run_scanner(repo_id)
         except Exception as e:
-            logging.error("Exception while scanning repository \'{}\'. Aborting further process for this repo.\n"
-                          "Cause: {}".format(repo_id, e))
+            # logging.error("Exception while scanning repository \'{}\'. Aborting further process for this repo.\n"
+            #               "Cause: {}".format(repo_id, e))
             raise e
         else:
             logging.info("Repository scan complete")
@@ -103,8 +104,9 @@ class Messenger:
 
     def _send_message(self, message, queues):
         """Send output message to queues specified by name"""
-        # While the queue list is not empty
-        while queues:
+        while True:
+            # List of queues to retry sending
+            queues_retry = []
             for queue in queues:
                 try:
                     logging.info("Sending message to {}...".format(queue))
@@ -118,7 +120,10 @@ class Messenger:
                 except pika.exceptions.NackError as e:
                     logging.info(f"Output message NACK from RabbitMQ (queue full)."
                                  f" Retrying in {RMQ_REJECTED_PUBLISH_DELAY} s")
-                else:
-                    # Remove queue from the list if message received
-                    queues.remove(queue)
-            time.sleep(RMQ_REJECTED_PUBLISH_DELAY)
+                    queues_retry.append(queue)
+            # If the queues to retry list is not empty
+            if queues_retry:
+                queues = queues_retry
+                time.sleep(RMQ_REJECTED_PUBLISH_DELAY)
+            else:
+                break

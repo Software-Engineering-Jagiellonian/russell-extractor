@@ -86,9 +86,10 @@ class RepoScanner:
             # Insert all files to database
             DbManager.insert_repository_language_files(repo_lang_files)
         except KeyError as e:
-            raise Exception(f"A repository_language entry for language {e} and repo \'{repo_id}\' is missing,"
-                            f" but other entries for this repo were found. repository_language table should"
-                            f" contain records for either all languages or none.")
+            raise Exception(
+                f"A repository_language entry for language ID={e} and repo \'{repo_id}\'"
+                f" is missing, but other entries for this repo were found. repository_language entries for given"
+                f" repo should exist for either all languages or none.")
 
     def get_file_extension(self, filename):
         """:returns extension from a file name string. If no extension, returns None"""
