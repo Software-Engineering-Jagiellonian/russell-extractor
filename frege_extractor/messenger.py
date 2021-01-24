@@ -4,7 +4,7 @@ import pika
 import time
 from db_manager import DbManager
 from repo_scanner import RepoScanner
-from config import INPUT_QUEUE, OUTPUT_QUEUES, RMQ_REJECTED_PUBLISH_DELAY
+from config import INPUT_QUEUE, OUTPUT_QUEUES, RMQ_REJECTED_PUBLISH_DELAY, REPOSITORIES_DIRECTORY
 
 
 class Messenger:
@@ -16,7 +16,7 @@ class Messenger:
         self._input_channel = None
         # Output channel
         self._output_channel = None
-        self.repo_scanner = RepoScanner()
+        self.repo_scanner = RepoScanner(REPOSITORIES_DIRECTORY)
 
     def app(self, rabbitmq_host, rabbitmq_port):
         """Main method of the app. Makes connection to RabbitMQ, initializes channels,
@@ -90,8 +90,7 @@ class Messenger:
         try:
             # Check if repo_id is present in repositories
             if not DbManager.select_repository_by_id(repo_id):
-                raise Exception('Did not found repository \'{}\' in the repositories table.'
-                                .format(repo_id))
+                raise Exception(f'Did not found repository \'{repo_id}\' in the repositories table.')
             logging.info("Running repo scanner for \'{}\'".format(repo_id))
             found_languages = self.repo_scanner.run_scanner(repo_id)
         except Exception as e:
@@ -109,7 +108,7 @@ class Messenger:
             queues_retry = []
             for queue in queues:
                 try:
-                    logging.info("Sending message to {}...".format(queue))
+                    logging.info(f"Sending message to {queue}...")
                     self._output_channel.basic_publish(
                         exchange='',
                         routing_key=queue,

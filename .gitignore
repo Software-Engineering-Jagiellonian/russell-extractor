@@ -1,7 +1,9 @@
 <<<<<<< HEAD
 __pychache__/
 **/__pychache__/
-sample/
+**/sample/
+**/repo_downloads/
+**/sample-repo/
 =======
 # Byte-compiled / optimized / DLL files
 __pycache__/
