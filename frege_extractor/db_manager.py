@@ -17,6 +17,18 @@ def connect():
 
 class DbManager:
 
+    logger = None
+    
+    @staticmethod
+    def init_logger():
+        DbManager.logger = logging.getLogger(__name__)
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(
+            fmt='%(asctime)s %(levelname)s: %(message)s', datefmt='%H:%M:%S'))
+        DbManager.logger.addHandler(handler)
+        DbManager.logger.setLevel(logging.WARNING)
+        DbManager.logger.propagate = False
+
     @staticmethod
     def _run_query(query, params):
         """Generic query execution method for all queries that do NOT
@@ -24,18 +36,18 @@ class DbManager:
         connection = connect()
         try:
             cursor = connection.cursor()
-            logging.info("Success calling database")
+            DbManager.logger.info("Success calling database")
             cursor.execute(query, tuple(params))
         except (Exception, psycopg2.DatabaseError) as error:
-            logging.error("Error in transaction: {}".format(error))
+            DbManager.logger.error("Error in transaction: {}".format(error))
             connection.rollback()
             raise Exception("DbManager Error:", error)
         else:
             connection.commit()
-            logging.info("Transaction completed successfully")
+            DbManager.logger.info("Transaction completed successfully")
         finally:
             if connection is not None:
-                logging.info("Closing connection to database")
+                DbManager.logger.info("Closing connection to database")
                 connection.close()
 
     @staticmethod
@@ -45,18 +57,18 @@ class DbManager:
         connection = connect()
         try:
             cursor = connection.cursor()
-            logging.info("Success calling database")
+            DbManager.logger.info("Success calling database")
             cursor.execute(query, tuple(params))
             rs = cursor.fetchall()
         except (Exception, psycopg2.DatabaseError) as error:
-            logging.error("Error in transaction: {}".format(error))
+            DbManager.logger.error("Error in transaction: {}".format(error))
             raise Exception("DbManager Error:", error)
         else:
-            logging.info("Transaction completed successfully")
+            DbManager.logger.info("Transaction completed successfully")
             return rs
         finally:
             if connection is not None:
-                logging.info("Closing connection to database")
+                DbManager.logger.info("Closing connection to database")
                 connection.close()
 
     @staticmethod
@@ -93,22 +105,22 @@ class DbManager:
         connection = connect()
         try:
             cursor = connection.cursor()
-            logging.info("Success calling database")
+            DbManager.logger.info("Success calling database")
             query = "INSERT INTO repository_language (repository_id, language_id, present, analyzed)" \
                     "SELECT %s, languages.id, 'False', 'False' FROM languages RETURNING language_id, id"
             cursor.execute(query, (repo_id,))
             rs = cursor.fetchall()
         except (Exception, psycopg2.DatabaseError) as error:
-            logging.error("Error in transaction: {}".format(error))
+            DbManager.logger.error("Error in transaction: {}".format(error))
             connection.rollback()
             raise
         else:
             connection.commit()
-            logging.info("Transaction completed successfully")
+            DbManager.logger.info("Transaction completed successfully")
             return rs
         finally:
             if connection is not None:
-                logging.info("Closing connection to database")
+                DbManager.logger.info("Closing connection to database")
                 connection.close()
 
     @staticmethod
@@ -119,7 +131,7 @@ class DbManager:
         connection = connect()
         try:
             cursor = connection.cursor()
-            logging.info("Success calling database")
+            DbManager.logger.info("Success calling database")
             insert_query = "INSERT INTO repository_language (repository_id, language_id, present, analyzed)" \
                            "SELECT %s, languages.id, 'False', 'False' FROM languages RETURNING language_id, id"
             cursor.execute(insert_query, (repo_id,))
@@ -130,16 +142,16 @@ class DbManager:
             # psycopg2.extras.execute_values(cursor,
             #     "UPDATE repository_language SET present='True' WHERE language")
         except (Exception, psycopg2.DatabaseError) as error:
-            logging.error("Error in transaction: {}".format(error))
+            DbManager.logger.error("Error in transaction: {}".format(error))
             connection.rollback()
             raise
         else:
             connection.commit()
-            logging.info("Transaction completed successfully")
+            DbManager.logger.info("Transaction completed successfully")
             return rs
         finally:
             if connection is not None:
-                logging.info("Closing connection to database")
+                DbManager.logger.info("Closing connection to database")
                 connection.close()
 
     @staticmethod
@@ -148,19 +160,19 @@ class DbManager:
         connection = connect()
         try:
             cursor = connection.cursor()
-            logging.info("Success calling database")
+            DbManager.logger.info("Success calling database")
             query = "INSERT INTO repository_language_file (repository_language_id, file_path) VALUES %s"
             psycopg2.extras.execute_values(cursor, query, entries)
         except (Exception, psycopg2.DatabaseError) as error:
-            logging.error("Error in transaction: {}".format(error))
+            DbManager.logger.error("Error in transaction: {}".format(error))
             connection.rollback()
             raise
         else:
             connection.commit()
-            logging.info("Transaction completed successfully")
+            DbManager.logger.info("Transaction completed successfully")
         finally:
             if connection is not None:
-                logging.info("Closing connection to database")
+                DbManager.logger.info("Closing connection to database")
                 connection.close()
 
     @staticmethod

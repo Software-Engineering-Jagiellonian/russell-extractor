@@ -8,7 +8,7 @@ logging.basicConfig(
 
 
 from messenger import Messenger
-from ext_lang_mapper import ExtLangMapper
+from db_manager import DbManager
 from config import RABBITMQ_HOST, RABBITMQ_PORT
 
 # Add package directory to system path (not necessary)
@@ -19,6 +19,6 @@ from config import RABBITMQ_HOST, RABBITMQ_PORT
 
 if __name__ == '__main__':
     logging.info("Starting frege-extractor app")
-    ExtLangMapper.init()
+    DbManager.init_logger()
     Messenger().app(RABBITMQ_HOST, RABBITMQ_PORT)
 
