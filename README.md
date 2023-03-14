@@ -1,5 +1,5 @@
 # frege-extractor
-Frege module that assigns repository's sources to programming languages and passes them to analyzers.
+Russell module that assigns repository's sources to programming languages and passes them to analyzers.
 
 The application listens for RabbitMQ messages from queue `extract` in the following format:
 
